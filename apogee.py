@@ -1,4 +1,6 @@
-print "apogee.py init"
+#! usr/bin/python
+
+print("apogee.py init")
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,8 +15,8 @@ wgtm = np.matrix(np.identity(4))
 covm = np.matrix(np.identity(4))
 
 # initial parameter values
-pars[0] = 10047.3  # amax, feet
-pars[1] = 25.9    # tmax, seconds
+pars[0] = 9140.3  # amax, feet
+pars[1] = 16.4997    # tmax, seconds
 pars[2] = 29.77    # deceleration, ft/s^2
 pars[3] = 25.92    # drag time scale, seconds
 
@@ -70,7 +72,7 @@ def kalmanStep(ktime):
     if time < tstart or time > pars[1]:
         pred[ktime] = altFunc(time)
         resd[ktime] = 0.0
-        for j in xrange(4):
+        for j in range(4):
             ptable[ktime,j] = pars[j]
             etable[ktime,j] = np.sqrt(covm[j,j])
         return
@@ -87,14 +89,14 @@ def kalmanStep(ktime):
     wres = res * drvs
 
     # degrade covariance matrix
-    for i in xrange(4):
+    for i in range(4):
         covm[i,i] += dstb[i]
     # invert into weight matrix
     wgtm = covm.I
     
     # add information from new measurement
-    for i in xrange(4):
-        for j in xrange(4):
+    for i in range(4):
+        for j in range(4):
             wgtm[i,j] += drvs[i]*drvs[j]
     
     # invert into covariance
@@ -104,7 +106,7 @@ def kalmanStep(ktime):
     pstp = covm.dot(wres)
     
     # update parameters, store info
-    for j in xrange(4):
+    for j in range(4):
         pars[j] += pstp[0,j]
         ptable[ktime,j] = pars[j]
         etable[ktime,j] = np.sqrt(covm[j,j])
@@ -113,7 +115,7 @@ def kalmanStep(ktime):
     
 
 # read data into table (columns are time, quantum-1, quantum-2)
-dtable = np.loadtxt("q1-q2.txt", skiprows=1)
+dtable = np.loadtxt("formatted_data.txt")
 #print table, "= table"
 
 # number of time points
@@ -129,7 +131,7 @@ etable = np.zeros((ntimes,4))
 
 
 # run the Kalman filter
-for ktime in xrange(ntimes):
+for ktime in range(ntimes):
     kalmanStep(ktime)
 
 
@@ -175,4 +177,4 @@ plt.grid()
 plt.show()
 
 
-print "apogee.py done"
+print("apogee.py done")

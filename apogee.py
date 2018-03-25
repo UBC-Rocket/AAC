@@ -1,4 +1,6 @@
-print "apogee.py init"
+#! usr/bin/python
+
+print("apogee.py init")
 
 import numpy as np
 import matplotlib.pyplot as plt

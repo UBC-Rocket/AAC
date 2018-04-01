@@ -15,51 +15,75 @@ wgtm = np.matrix(np.identity(4))
 covm = np.matrix(np.identity(4))
 
 # initial parameter values
-pars[0] = 9140.3  # amax, feet
-pars[1] = 16.4997    # tmax, seconds
-pars[2] = 9.81    # deceleration, ft/s^2
-pars[3] = 19.0997    # drag time scale, seconds
+# pars[0] = 9140.3  # amax, feet
+# pars[1] = 16.4997    # tmax, seconds
+# pars[2] = 15.5183    # drag time scale, seconds, represents the time for rocket to hit terminal velocity assuming it is in free fall, nose down
+# pars[3] = 32.2    # deceleration, ft/s^2
+
+pars[0] = 9115.7 #*1.1 # amax, feet
+pars[1] = 15.91  #*1.05  # tmax, seconds
+pars[2] = 15.97    # drag time scale, seconds, represents the time for rocket to hit terminal velocity assuming it is in free fall, nose down
+pars[3] = 40.81   # deceleration, ft/s^2
+deploy = False
+
 
 # initial covariances
 covm[0,0] = 10.**2
 covm[1,1] = 1.**2
-covm[2,2] = 1.0**2
-covm[3,3] = 1.0**2
+covm[2,2] = 1.**2
+covm[3,3] = (1.0)**2
 
 # disturbance covariance per time step
 hz = 20.0
 dstb[0] = (1./hz)**2 * 0
 dstb[1] = (1./hz)**2 * 0
 dstb[2] = (1./hz)**2 * 0
-dstb[3] = (0.1/hz)**2 * 0
+dstb[3] = (1./hz)**2 * 0
+
+# altimeter measurement variance (error squared)
+altVar = 1.0
 
 # start time for Kalman filter
-tstart = 5.0
+tstart = 0.0
 
 # altitude function
 def altFunc(time):
     amax  = pars[0]
     tmax  = pars[1]
-    decel = pars[2]
-    tdrag = pars[3]
+    tdrag = pars[2]
+    decel = pars[3]
     altitude  = amax + decel * tdrag*tdrag * np.log(np.cos((time-tmax)/tdrag))
     return altitude
+
+    #Need to assign them to some algebraic function as a function of time
+    altDDiff = 0
+    timeDDiff = 0
+
+    #change altitude for prediction
+    if(deploy == True):
+        amax = amax-altDDiff
+        tmax = tmax-timeDDiff
 
 # altitude derivatives function
 def altDerivs(time):
     global drvs
     # amax  = pars[0]
     tmax  = pars[1]
-    decel = pars[2]
-    tdrag = pars[3]
+    tdrag = pars[2]
+    decel = pars[3]
     # altitude  = amax + decel * tdrag*tdrag * np.log(np.cos((time-tmax)/tdrag))
     drvs[0] = 1.0
     drvs[1] = decel * tdrag * np.tan((time-tmax)/tdrag)
-    drvs[2] = tdrag * tdrag * np.log(np.cos((time-tmax)/tdrag))
     t1 = decel * tdrag*2.0  * np.log(np.cos((time-tmax)/tdrag))
     t2 = decel * (time-tmax) * np.tan((time-tmax)/tdrag)
-    drvs[3] = t1+t2
+    drvs[2] = t1+t2
+    drvs[3] = tdrag * tdrag * np.log(np.cos((time-tmax)/tdrag))
     return
+
+
+#Function to check if difference in altitude is suitable for deployment
+def deployCheck(time):
+    pass
 
 def kalmanStep(ktime):
     global covm, wgtm, drvs, wres, ptable, etable, pstp, pars, pred, resd
@@ -77,6 +101,9 @@ def kalmanStep(ktime):
             etable[ktime,j] = np.sqrt(covm[j,j])
         return
     
+    #Check for potential deployment
+    deployCheck()
+
     # predicted altitude
     altPred = altFunc(time)
     pred[ktime] = altPred
@@ -86,7 +113,7 @@ def kalmanStep(ktime):
     # derivatives
     altDerivs(time)
     # weighted residuals array
-    wres = res * drvs
+    wres = res * drvs / altVar
 
     # degrade covariance matrix
     for i in range(4):
@@ -97,7 +124,7 @@ def kalmanStep(ktime):
     # add information from new measurement
     for i in range(4):
         for j in range(4):
-            wgtm[i,j] += drvs[i]*drvs[j]
+            wgtm[i,j] += drvs[i]*drvs[j] / altVar
     
     # invert into covariance
     covm = wgtm.I
@@ -143,6 +170,7 @@ plt.title("altitude vs time")
 plt.grid()
 plt.show()
 
+print(ptable[-1,:])
 
 
 # plt.plot(dtable[:,0], resd,"-")
@@ -164,17 +192,17 @@ plt.show()
 # plt.grid()
 # plt.show()
 
-# plt.errorbar(dtable[:,0], ptable[:,2], etable[:,2])
-# plt.title("decel vs time")
-# #plt.ylim(-5.,15.)
-# plt.grid()
-# plt.show()
+plt.errorbar(dtable[:,0], ptable[:,3], etable[:,3])
+plt.title("decel vs time")
+#plt.ylim(-5.,15.)
+plt.grid()
+plt.show()
 
-# plt.errorbar(dtable[:,0], ptable[:,3], etable[:,3])
-# plt.title("tdrag vs time")
-# #plt.ylim(-5.,15.)
-# plt.grid()
-# plt.show()
+plt.errorbar(dtable[:,0], ptable[:,2], etable[:,2])
+plt.title("tdrag vs time")
+#plt.ylim(-5.,15.)
+plt.grid()
+plt.show()
 
 
 print("apogee.py done")

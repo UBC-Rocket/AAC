@@ -24,7 +24,7 @@ pars[0] = 9115.7 #*1.1 # amax, feet
 pars[1] = 15.91  #*1.05  # tmax, seconds
 pars[2] = 15.97    # drag time scale, seconds, represents the time for rocket to hit terminal velocity assuming it is in free fall, nose down
 pars[3] = 40.81   # deceleration, ft/s^2
-deploy = False
+# deploy = False
 
 
 # initial covariances
@@ -55,14 +55,14 @@ def altFunc(time):
     altitude  = amax + decel * tdrag*tdrag * np.log(np.cos((time-tmax)/tdrag))
     return altitude
 
-    #Need to assign them to some algebraic function as a function of time
-    altDDiff = 0
-    timeDDiff = 0
+    # #Need to assign them to some algebraic function as a function of time
+    # altDDiff = 0
+    # timeDDiff = 0
 
-    #change altitude for prediction
-    if(deploy == True):
-        amax = amax-altDDiff
-        tmax = tmax-timeDDiff
+    # #change altitude for prediction
+    # if(deploy == True):
+    #     amax = amax-altDDiff
+    #     tmax = tmax-timeDDiff
 
 # altitude derivatives function
 def altDerivs(time):
@@ -82,8 +82,8 @@ def altDerivs(time):
 
 
 #Function to check if difference in altitude is suitable for deployment
-def deployCheck(time):
-    pass
+# def deployCheck(time):
+#     pass
 
 def kalmanStep(ktime):
     global covm, wgtm, drvs, wres, ptable, etable, pstp, pars, pred, resd
@@ -102,7 +102,7 @@ def kalmanStep(ktime):
         return
     
     #Check for potential deployment
-    deployCheck()
+    # deployCheck()
 
     # predicted altitude
     altPred = altFunc(time)
@@ -170,7 +170,7 @@ plt.title("altitude vs time")
 plt.grid()
 plt.show()
 
-print(ptable[-1,:])
+# print(ptable[-1,:])
 
 
 # plt.plot(dtable[:,0], resd,"-")

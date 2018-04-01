@@ -17,8 +17,8 @@ covm = np.matrix(np.identity(4))
 # initial parameter values
 pars[0] = 9140.3  # amax, feet
 pars[1] = 16.4997    # tmax, seconds
-pars[2] = 29.77    # deceleration, ft/s^2
-pars[3] = 25.92    # drag time scale, seconds
+pars[2] = 9.81    # deceleration, ft/s^2
+pars[3] = 19.0997    # drag time scale, seconds
 
 # initial covariances
 covm[0,0] = 10.**2
@@ -115,7 +115,7 @@ def kalmanStep(ktime):
     
 
 # read data into table (columns are time, quantum-1, quantum-2)
-dtable = np.loadtxt("formatted_data.txt")
+dtable = np.loadtxt("formatted_data2.csv", delimiter=",")
 #print table, "= table"
 
 # number of time points
@@ -145,36 +145,36 @@ plt.show()
 
 
 
-plt.plot(dtable[:,0], resd,"-")
-plt.title("resd vs time")
-plt.ylim(-100.,100.)
-plt.grid()
-plt.show()
+# plt.plot(dtable[:,0], resd,"-")
+# plt.title("resd vs time")
+# plt.ylim(-100.,100.)
+# plt.grid()
+# plt.show()
 
 
-plt.errorbar(dtable[:,0], ptable[:,0], etable[:,0])
-plt.title("amax vs time")
-#plt.ylim(-5.,15.)
-plt.grid()
-plt.show()
+# plt.errorbar(dtable[:,0], ptable[:,0], etable[:,0])
+# plt.title("amax vs time")
+# #plt.ylim(-5.,15.)
+# plt.grid()
+# plt.show()
 
-plt.errorbar(dtable[:,0], ptable[:,1], etable[:,1])
-plt.title("tmax vs time")
-#plt.ylim(-5.,15.)
-plt.grid()
-plt.show()
+# plt.errorbar(dtable[:,0], ptable[:,1], etable[:,1])
+# plt.title("tmax vs time")
+# #plt.ylim(-5.,15.)
+# plt.grid()
+# plt.show()
 
-plt.errorbar(dtable[:,0], ptable[:,2], etable[:,2])
-plt.title("decel vs time")
-#plt.ylim(-5.,15.)
-plt.grid()
-plt.show()
+# plt.errorbar(dtable[:,0], ptable[:,2], etable[:,2])
+# plt.title("decel vs time")
+# #plt.ylim(-5.,15.)
+# plt.grid()
+# plt.show()
 
-plt.errorbar(dtable[:,0], ptable[:,3], etable[:,3])
-plt.title("tdrag vs time")
-#plt.ylim(-5.,15.)
-plt.grid()
-plt.show()
+# plt.errorbar(dtable[:,0], ptable[:,3], etable[:,3])
+# plt.title("tdrag vs time")
+# #plt.ylim(-5.,15.)
+# plt.grid()
+# plt.show()
 
 
 print("apogee.py done")

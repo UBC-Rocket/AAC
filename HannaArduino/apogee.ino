@@ -141,12 +141,12 @@ void kalmanStep(int ktime){
       covm[i][i] += dstb[i];
   }
   //invert into weight matrix
-  //wgtm = covm.I;
-
-      
+  //wgtm = covm.I;    
   Matrix.Invert((float*)covm, 4);
   Matrix.Copy((float*)covm, 4, 4, (float*)wgtm);
   Matrix.Print((float*)wgtm, 4, 4, "wgtm");
+  Matrix.Invert((float*)covm, 4);
+  Matrix.Print((float*)covm, 4, 4, "covm");
 
         
   //add information from new measurement
@@ -160,6 +160,7 @@ void kalmanStep(int ktime){
   Matrix.Invert((float*)wgtm, 4);
   Matrix.Copy((float*)wgtm, 4, 4, (float*)covm);
   Matrix.Print((float*)covm, 4, 4, "covm");
+  Matrix.Invert((float*)wgtm, 4);
         
    //add information from new measurement
   for (int b = 0; b< 4; b++){
@@ -175,19 +176,17 @@ void kalmanStep(int ktime){
      etable[ktime][k] = sqrt(covm[k][k]);
  } 
  int val = pars[0];
- Serial.print("I am here");
  Serial.print(val);
  Serial.print("\n");
   byte four = (val & 0xFF);
   byte three = ((val >> 8) & 0xFF);
 
     //We have 1kB of EEPROM memory equivalent to the uno
+  if (addr < EEPROM.length()) {  
   EEPROM.write(addr, four);
   EEPROM.write(addr+1, three);
   addr = addr + 2;
-  if (addr == EEPROM.length()) {
-     addr = 0;
-    }      
+  }      
 }
 
 
@@ -204,8 +203,5 @@ void loop() {
   delay(2000);
  }
 }
-
-
-
 
 /*Record after 2000 ft*/

@@ -5,6 +5,7 @@
 #include <SPI.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
+#include <MatrixMath.h>
 
 #define BMP_SCK 13
 #define BMP_MISO 12
@@ -109,32 +110,19 @@ void kalmanStep(int ktime){
   //time = millis()/1000;
   float alt  = bme.readAltitude(1013.25); //instead of dtable we want real altitude
 //before start time, or after tmax, just copy info
-  if (time < tstart || time > pars[1]){
+  /*if (time < tstart || time > pars[1]){
     pred[ktime] = altFunc(time);
     resd[ktime] = 0.0;
     for (int j = 0; j <4; j++){
       ptable[ktime][j] = pars[j];
       etable[ktime][j] = sqrt(covm[j][j]);
     }
-  }
+  }*/
   
 
   //predicted altitude
   altPred = altFunc(time);
   pred[ktime] = altPred;
-  int val = pred[ktime];
-  Serial.print(pred[ktime]);
-  Serial.print("\n");
-  byte four = (val & 0xFF);
-  byte three = ((val >> 8) & 0xFF);
-
-    //We have 1kB of EEPROM memory equivalent to the uno
-  EEPROM.write(addr, four);
-  EEPROM.write(addr+1, three);
-  addr = addr + 2;
-  if (addr == EEPROM.length()) {
-     addr = 0;
-    }
   
   //residual
   float res = alt - altPred;
@@ -154,6 +142,12 @@ void kalmanStep(int ktime){
   }
   //invert into weight matrix
   //wgtm = covm.I;
+
+      
+  Matrix.Invert((float*)covm, 4);
+  Matrix.Copy((float*)covm, 4, 4, (float*)wgtm);
+  Matrix.Print((float*)wgtm, 4, 4, "wgtm");
+
         
   //add information from new measurement
   for (int z = 0; z< 4; z++){
@@ -163,11 +157,14 @@ void kalmanStep(int ktime){
   }      
   //invert into covariance
  //covm = wgtm.I;
+  Matrix.Invert((float*)wgtm, 4);
+  Matrix.Copy((float*)wgtm, 4, 4, (float*)covm);
+  Matrix.Print((float*)covm, 4, 4, "covm");
         
    //add information from new measurement
   for (int b = 0; b< 4; b++){
       for (int c = 0; c < 4; c++){
-      pstp[b] = wres[b]*covm[b][c];
+      pstp[b] += wres[b]*covm[b][c];
       }
   }  
         
@@ -176,7 +173,21 @@ void kalmanStep(int ktime){
      pars[k] += pstp[k];
      ptable[ktime][k] = pars[k];
      etable[ktime][k] = sqrt(covm[k][k]);
- }       
+ } 
+ int val = pars[0];
+ Serial.print("I am here");
+ Serial.print(val);
+ Serial.print("\n");
+  byte four = (val & 0xFF);
+  byte three = ((val >> 8) & 0xFF);
+
+    //We have 1kB of EEPROM memory equivalent to the uno
+  EEPROM.write(addr, four);
+  EEPROM.write(addr+1, three);
+  addr = addr + 2;
+  if (addr == EEPROM.length()) {
+     addr = 0;
+    }      
 }
 
 
@@ -185,6 +196,7 @@ void loop() {
   time = (millis()/1000);
   digitalWrite(4,HIGH); //indication LED high
   RealAlt  = bme.readAltitude(1013.25);
+  Serial.print(RealAlt);
   if (RealAlt >= 2000) {
   for (int ktime = 0; ktime < 5; ktime++){
     kalmanStep(ktime);

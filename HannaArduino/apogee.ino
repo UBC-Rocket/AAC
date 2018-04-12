@@ -20,7 +20,7 @@ Adafruit_BMP280 bme; // I2C
 
 int addr = 0; //initial address we're writing in EEPROM to
 const int chipSelect = 10; //For SD card
-//File apogeeFile;
+File apogeeFile;
 
 //Global Vars
 //amax in feet, tmax in seconds, drag time scale, seconds, represents the time for rocket to hit terminal velocity assuming it is in free fall, nose down, deceleration ft/s^2
@@ -49,8 +49,10 @@ float altVar = 1.0;
 //start time for Kalman filter
 float tstart = 0.0;
 
+//time variable for clock in arduino
 unsigned long time;
 
+//Real and predicted altitude
 float RealAlt;
 float altPred;
 
@@ -80,7 +82,7 @@ void setup() {
   covm[2][2] = sq(1.0);
   covm[3][3] = sq(1.0);
 
- /* pinMode(chipSelect, OUTPUT);
+  pinMode(chipSelect, OUTPUT);
  
  // see if the card is present and can be initialized:
   if (!SD.begin(chipSelect)) {
@@ -91,7 +93,7 @@ void setup() {
   Serial.println("card initialized.");
   
   // create a new file
-  char filename[] = "APOGEEPREDICTION.CSV";
+  char filename[] = "ACTIVEAPOGEEPREDICTION.CSV";
   for (uint8_t i = 0; i < 100; i++) {
     filename[6] = i/10 + '0';
     filename[7] = i%10 + '0';
@@ -107,7 +109,7 @@ void setup() {
   }
   
   Serial.print("Logging to: ");
-  Serial.println(filename);*/
+  Serial.println(filename);
 }
 
 void error(char *str)
@@ -216,10 +218,10 @@ void kalmanStep(int ktime){
     EEPROM.write(addr+1, three);
     addr = addr + 2;
   }
-  //apogeeFile.print(", ");    
-  //apogeeFile.print(time);
-  //apogeeFile.print(", ");    
-  //apogeeFile.print(pars[0]);
+  apogeeFile.print(", ");    
+  apogeeFile.print(time);
+  apogeeFile.print(", ");    
+  apogeeFile.print(pars[0]);
 }
 
 

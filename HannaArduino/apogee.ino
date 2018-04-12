@@ -6,6 +6,8 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
 #include <MatrixMath.h>
+#include "SD.h"
+#include <Canbus.h>
 
 #define BMP_SCK 13
 #define BMP_MISO 12
@@ -16,10 +18,11 @@ Adafruit_BMP280 bme; // I2C
 //Adafruit_BMP280 bme(BMP_CS); // hardware SPI
 //Adafruit_BMP280 bme(BMP_CS, BMP_MOSI, BMP_MISO,  BMP_SCK);
 
-int addr = 0; //initial value that we're writing to
+int addr = 0; //initial address we're writing in EEPROM to
+const int chipSelect = 10; //For SD card
+//File apogeeFile;
 
 //Global Vars
-
 //amax in feet, tmax in seconds, drag time scale, seconds, represents the time for rocket to hit terminal velocity assuming it is in free fall, nose down, deceleration ft/s^2
 float pars[4] = {9115.7, 15.91, 15.97, 40.81}; 
 float drvs[4];
@@ -35,10 +38,11 @@ float covm[4][4] = {{1.0,0.0,0.0,0.0},
                      {0.0,0.0,1.0,0.0},
                      {0.0,0.0,0.0,1.0}};
 
-  float amax  = pars[0];
-  float tmax  = pars[1];
-  float tdrag = pars[2];
-  float decel = pars[3];
+float amax  = pars[0];
+float tmax  = pars[1];
+float tdrag = pars[2];
+float decel = pars[3];
+
 //altimeter measurement variance (error squared)
 float altVar = 1.0;
 
@@ -50,7 +54,7 @@ unsigned long time;
 float RealAlt;
 float altPred;
 
-int ntimes = 100;
+const int ntimes = 5;
   
 void setup() {
   // put your setup code here, to run once:
@@ -63,6 +67,7 @@ void setup() {
     Serial.println("Could not find a valid BMP280 sensor, check wiring!");
     while (1);
   }
+  
   float hz = 20.0;
   dstb[0] = sq((1.0/hz))* 0;
   dstb[1] = sq((1.0/hz))* 0;
@@ -75,29 +80,51 @@ void setup() {
   covm[2][2] = sq(1.0);
   covm[3][3] = sq(1.0);
 
+ /* pinMode(chipSelect, OUTPUT);
+ 
+ // see if the card is present and can be initialized:
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Card failed, or not present");
+    // don't do anything more:
+    return;
+  }
+  Serial.println("card initialized.");
   
+  // create a new file
+  char filename[] = "APOGEEPREDICTION.CSV";
+  for (uint8_t i = 0; i < 100; i++) {
+    filename[6] = i/10 + '0';
+    filename[7] = i%10 + '0';
+    if (! SD.exists(filename)) {
+      // only open a new file if it doesn't exist
+      apogeeFile = SD.open(filename, FILE_WRITE); 
+      break;  // leave the loop!
+    }
+  }
+  
+  if (! apogeeFile) {
+    error("couldnt create file");
+  }
+  
+  Serial.print("Logging to: ");
+  Serial.println(filename);*/
+}
+
+void error(char *str)
+{
+  Serial.print("error: ");
+  Serial.println(str);
+  
+  // red LED indicates error
+  //digitalWrite(redLEDpin, HIGH);
+  
+  while(1);
 }
 
 float altFunc(unsigned long time) {
   
   float altitude  = amax + decel * tdrag*tdrag * log(cos((time-tmax)/tdrag));
-  //Serial.print(altitude);
-  //Serial.print("\n");
   return altitude;
-}
-
-void altDerivs(unsigned long time){
-  //amax  = pars[0]
-  float tmax  = pars[1];
-  float tdrag = pars[2];
-  float decel = pars[3];
-  drvs[0] = 1.0;
-  drvs[1] = decel * tdrag * tan((time-tmax)/tdrag);
-  float t1 = decel * tdrag*2.0  * log(cos((time-tmax)/tdrag));
-  float t2 = decel * (time-tmax) * tan((time-tmax)/tdrag);
-  drvs[2] = t1+t2;
-  drvs[3] = tdrag * tdrag * log(cos((time-tmax)/tdrag));
-
 }
 
 void kalmanStep(int ktime){
@@ -107,17 +134,15 @@ void kalmanStep(int ktime){
   float etable [100][4];
   float pred [100];
   float resd [100];
-  //time = millis()/1000;
-  float alt  = bme.readAltitude(1013.25); //instead of dtable we want real altitude
 //before start time, or after tmax, just copy info
-  /*if (time < tstart || time > pars[1]){
+  if (time < tstart || time > pars[1]){
     pred[ktime] = altFunc(time);
     resd[ktime] = 0.0;
     for (int j = 0; j <4; j++){
       ptable[ktime][j] = pars[j];
       etable[ktime][j] = sqrt(covm[j][j]);
     }
-  }*/
+  }
   
 
   //predicted altitude
@@ -125,30 +150,34 @@ void kalmanStep(int ktime){
   pred[ktime] = altPred;
   
   //residual
-  float res = alt - altPred;
+  float res = RealAlt - altPred;
   resd[ktime] = res;
   
   //derivatives
-  altDerivs(time);
+  drvs[0] = 1.0;
+  drvs[1] = decel * tdrag * tan((time-tmax)/tdrag);
+  float t1 = decel * tdrag*2.0  * log(cos((time-tmax)/tdrag));
+  float t2 = decel * (time-tmax) * tan((time-tmax)/tdrag);
+  drvs[2] = t1+t2;
+  drvs[3] = tdrag * tdrag * log(cos((time-tmax)/tdrag));
   
   //weighted residuals array
-  for (int a = 0; a < 4; a++) {
-    wres[a] = res * drvs[a] / altVar;
-  }
+  wres[0] = (res * drvs[0]) / altVar;
+  wres[1] = (res * drvs[1]) / altVar;
+  wres[2] = (res * drvs[2]) / altVar;
+  wres[3] = (res * drvs[3]) / altVar;
 
   //degrade covariance matrix
   for (int i=0; i < 4; i++){
       covm[i][i] += dstb[i];
   }
+  
   //invert into weight matrix
   //wgtm = covm.I;    
   Matrix.Invert((float*)covm, 4);
   Matrix.Copy((float*)covm, 4, 4, (float*)wgtm);
-  Matrix.Print((float*)wgtm, 4, 4, "wgtm");
   Matrix.Invert((float*)covm, 4);
-  Matrix.Print((float*)covm, 4, 4, "covm");
-
-        
+      
   //add information from new measurement
   for (int z = 0; z< 4; z++){
       for (int y = 0; y < 4; y++){
@@ -159,47 +188,56 @@ void kalmanStep(int ktime){
  //covm = wgtm.I;
   Matrix.Invert((float*)wgtm, 4);
   Matrix.Copy((float*)wgtm, 4, 4, (float*)covm);
-  Matrix.Print((float*)covm, 4, 4, "covm");
   Matrix.Invert((float*)wgtm, 4);
+
+  //Matrix.Print((float*)covm, 4, 4, "covm");
+  //Matrix.Print((float*)wgtm, 4, 4, "wgtm");
         
-   //add information from new measurement
-  for (int b = 0; b< 4; b++){
-      for (int c = 0; c < 4; c++){
-      pstp[b] += wres[b]*covm[b][c];
-      }
-  }  
+   //add information from new measurement by the dot product
+  Matrix.Multiply((float*)covm, (float*) wres, 4,4,1, (float*)pstp);
+  //Matrix.Print((float*)pstp, 4, 1, "pstp"); 
         
- //update parameters, store info
+ //update parameters, store info into the parameter and error tables
  for (int k = 0; k<4; k++) {
      pars[k] += pstp[k];
      ptable[ktime][k] = pars[k];
      etable[ktime][k] = sqrt(covm[k][k]);
  } 
+
+ //WRITE OUR INFO TO EEPROM
+ //CHANGE THIS SECTION IF YOU WANT TO WRITE TO SD INSTEAD
  int val = pars[0];
- Serial.print(val);
- Serial.print("\n");
-  byte four = (val & 0xFF);
-  byte three = ((val >> 8) & 0xFF);
+ byte four = (val & 0xFF);
+ byte three = ((val >> 8) & 0xFF);
 
     //We have 1kB of EEPROM memory equivalent to the uno
   if (addr < EEPROM.length()) {  
-  EEPROM.write(addr, four);
-  EEPROM.write(addr+1, three);
-  addr = addr + 2;
-  }      
+    EEPROM.write(addr, four);
+    EEPROM.write(addr+1, three);
+    addr = addr + 2;
+  }
+  //apogeeFile.print(", ");    
+  //apogeeFile.print(time);
+  //apogeeFile.print(", ");    
+  //apogeeFile.print(pars[0]);
 }
 
 
 void loop() {
   // put your main code here, to run repeatedly:
+  //Initialize clock 
   time = (millis()/1000);
   digitalWrite(4,HIGH); //indication LED high
-  RealAlt  = bme.readAltitude(1013.25);
-  Serial.print(RealAlt);
+  
+  //Check the barometer for reading
+  //Later this will be recieved from apogee detect board
+  RealAlt = bme.readAltitude(1013.25)*3.281; //convert from meters to feet
+  //Threshold for recording our data
   if (RealAlt >= 2000) {
-  for (int ktime = 0; ktime < 5; ktime++){
+  for (int ktime = 0; ktime < ntimes; ktime++){
     kalmanStep(ktime);
   }
+  //Intermitent delay
   delay(2000);
  }
 }

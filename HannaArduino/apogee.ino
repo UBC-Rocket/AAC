@@ -8,6 +8,8 @@
 #include <MatrixMath.h>
 #include "SD.h"
 #include <Canbus.h>
+#include <iostream>
+#include <fstream>
 
 #define BMP_SCK 13
 #define BMP_MISO 12
@@ -235,7 +237,22 @@ float kalmanStep(int ktime){
   return(pars[0]);
 }
 
+//Function that looks up altitude diff for each time run
 float lookUpAB(time){
+  //set a constant actuation time and lookup table file "inLUT"
+  const int actuateTime = 3;
+  //simulation has 383 lines, starting from t=0
+  int table = [1149];
+  ifstream inLUT("formatted_data2.txt");
+  if(inLUT.is_open()){
+    //load all values into "table" var
+    for(int i=0; i<1149; i++){
+      i >> table[i];
+    } 
+  }
+
+  return(table[time]);
+
   //lookup logic here
   continue;
 }
@@ -256,8 +273,9 @@ void loop() {
     case PREDICT_APOGEE:
       for (int ktime = 0; ktime < ntimes; ktime++){
         maxAlt = kalmanStep(ktime);
-        //Deployment conditional (replace 2000 with val of actuation effect via lookup table (fn of time))
-        if(abs(maxAlt - 10000) >= 2000){
+        //Deployment conditional (replace rs comparison with val of actuation effect via lookup table (fn of time))
+        if(abs(maxAlt - 10000) >= lookUpAB(time)){
+          //Print to console/write to memory "actuate"
           next_state = RETRACT_BRAKES;
           break;
         }

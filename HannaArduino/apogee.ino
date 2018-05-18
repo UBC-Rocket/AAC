@@ -250,11 +250,7 @@ float lookUpAB(time){
       i >> table[i];
     } 
   }
-
   return(table[time]);
-
-  //lookup logic here
-  continue;
 }
 
 
@@ -273,8 +269,10 @@ void loop() {
     case PREDICT_APOGEE:
       for (int ktime = 0; ktime < ntimes; ktime++){
         maxAlt = kalmanStep(ktime);
-        //Deployment conditional (replace rs comparison with val of actuation effect via lookup table (fn of time))
-        if(abs(maxAlt - 10000) >= lookUpAB(time)){
+        int deltaLookUp;
+        //Deployment conditional (uses look up table, assume deploy for 3s, assumes we will only look at deployment past 7000 ft, no point in actuation otherwise)
+        (time > (383-3)) ? (deltaLookUp = (lookUpAB(time)-lookUpAB(383))) : (deltaLookUp = (lookUpAB(time)-lookUpAB(time+3)));
+        if((abs(maxAlt - 10000) >= deltaLookUp) && (RealAlt>=7000)){
           //Print to console/write to memory "actuate"
           next_state = RETRACT_BRAKES;
           break;
@@ -290,9 +288,7 @@ void loop() {
       next_state = PREDICT_APOGEE;
       
     case POST_APOGEE:
-      // once apogee is detected, air brakes become useless and nothing we can do will help -- stop trying
-      end_signal = 1;
+      //Write to memory "terminate or smt like that"
   }
-
   curr_state = next_state;
 }

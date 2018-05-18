@@ -209,4 +209,9 @@ def execute():
     print("apogee.py done")
 
 #Conditional for burnout needed
-execute()
+#execute()
+
+#hypothetical implementation
+
+def main():
+    pass

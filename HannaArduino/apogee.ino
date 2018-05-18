@@ -29,11 +29,11 @@ float drvs[4];
 float wres[4];
 float pstp[4];
 float dstb[4];
-float wgtm[4][4]= {{1.0,0.0,0.0,0.0},
+float wgtm[4][4] =  {{1.0,0.0,0.0,0.0},
                      {0.0,1.0,0.0,0.0},
                      {0.0,0.0,1.0,0.0},
                      {0.0,0.0,0.0,1.0}};
-float covm[4][4] = {{1.0,0.0,0.0,0.0},
+float covm[4][4] =  {{1.0,0.0,0.0,0.0},
                      {0.0,1.0,0.0,0.0},
                      {0.0,0.0,1.0,0.0},
                      {0.0,0.0,0.0,1.0}};
@@ -50,7 +50,15 @@ float altVar = 1.0;
 float tstart = 0.0;
 
 //time variable for clock in arduino
-unsigned long time;
+// unsigned long time;
+
+//initialization
+unsigned long time = (millis()/1000);
+digitalWrite(4,HIGH); //indication LED high
+//Check the barometer for reading
+//Later this will be recieved from apogee detect board
+float RealAlt = bme.readAltitude(1013.25)*3.281; //convert from meters to feet
+
 
 //Real and predicted altitude
 float RealAlt;
@@ -129,7 +137,7 @@ float altFunc(unsigned long time) {
   return altitude;
 }
 
-void kalmanStep(int ktime){
+float kalmanStep(int ktime){
 //# current time and altitude
     //parameters and errors tables
   float ptable [100][4];
@@ -222,26 +230,51 @@ void kalmanStep(int ktime){
   apogeeFile.print(time);
   apogeeFile.print(", ");    
   apogeeFile.print(pars[0]);
+
+  //Return max altitude
+  return(pars[0]);
+}
+
+float lookUpAB(time){
+  //lookup logic here
+  continue;
 }
 
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  //Initialize clock 
-  time = (millis()/1000);
-  digitalWrite(4,HIGH); //indication LED high
-  
-  //Check the barometer for reading
-  //Later this will be recieved from apogee detect board
-  RealAlt = bme.readAltitude(1013.25)*3.281; //convert from meters to feet
-  //Threshold for recording our data
-  if (RealAlt >= 2000) {
-  for (int ktime = 0; ktime < ntimes; ktime++){
-    kalmanStep(ktime);
-  }
-  //Intermitent delay
-  delay(2000);
- }
-}
+  float maxAlt;
+  //state mc
+  switch (curr_state){
+    case STANDBY:
+      //Threshold for recording our data
+      if (RealAlt >= 2000) {
+        next_state = PREDICT_APOGEE;
+        //Intermitent delay
+        delay(2000);
+      }
 
-/*Record after 2000 ft*/
+    case PREDICT_APOGEE:
+      for (int ktime = 0; ktime < ntimes; ktime++){
+        maxAlt = kalmanStep(ktime);
+        //Deployment conditional (replace 2000 with val of actuation effect via lookup table (fn of time))
+        if(abs(maxAlt - 10000) >= 2000){
+          next_state = RETRACT_BRAKES;
+          break;
+        }
+      }
+
+    case DEPLOY_BRAKES:
+      //Some logic to write to memory
+      next_state = PREDICT_APOGEE;
+      
+    case RETRACT_BRAKES:
+      //Some logic to write to memory
+      next_state = PREDICT_APOGEE;
+      
+    case POST_APOGEE:
+      // once apogee is detected, air brakes become useless and nothing we can do will help -- stop trying
+      end_signal = 1;
+  }
+
+  curr_state = next_state;
+}

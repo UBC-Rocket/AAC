@@ -291,6 +291,8 @@ void loop() {
       //     break;
       //   }
       // }
+      acceptableMargin = margin_modify(predict_apogee_now());
+
       if(/*some post apgogee condition*/){
         next_state = POST_APOGEE;
       } else {
@@ -318,8 +320,13 @@ void loop() {
   curr_state = next_state;
 }
 
-//Reorganize predict apogee into seperate fn
+//Will make margin sensitive to altitude
+float margin_modify(float altitudeApproxed){
+  //fn used is y = -1,000e^(-0.004x)+10,000
+  return(TARGET_APOGEE-(-1000*exp(-0.004*altitudeApproxed) + 10000))
+}
 
+//Reorganize predict apogee into seperate fn
 float predict_apogee_now(){
   //Checking if kalman should be reset (when we actuated)
   for(int ktime = 0; ktime < ntimes; ktime++){

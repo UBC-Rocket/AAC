@@ -10,11 +10,14 @@
 #include <Canbus.h>
 #include <iostream>
 #include <fstream>
+#include <chrono>
+#include <thread>
 
 #define BMP_SCK 13
 #define BMP_MISO 12
 #define BMP_MOSI 11 
 #define BMP_CS 10
+#define TARGET_APOGEE 10000
 
 Adafruit_BMP280 bme; // I2C
 //Adafruit_BMP280 bme(BMP_CS); // hardware SPI
@@ -139,9 +142,9 @@ float altFunc(unsigned long time) {
   return altitude;
 }
 
-float kalmanStep(int ktime){
+float kalmanStep(int ktime, bool needsReset){
 //# current time and altitude
-    //parameters and errors tables
+  //parameters and errors tables
   float ptable [100][4];
   float etable [100][4];
   float pred [100];
@@ -155,10 +158,19 @@ float kalmanStep(int ktime){
       etable[ktime][j] = sqrt(covm[j][j]);
     }
   }
-  
 
-  //predicted altitude
-  altPred = altFunc(time);
+  //Refactored time will be used to reset the kalman filter
+  float refactored_time;
+  
+  if(needsReset){
+    //new counter (t = 0)
+    refactored_time = (millis()/1000);
+    altPred = altFunc(refactored_time);
+  } else {
+    //predicted altitude
+    altPred = altFunc(time);
+  }
+
   pred[ktime] = altPred;
   
   //residual
@@ -267,18 +279,31 @@ void loop() {
       }
 
     case PREDICT_APOGEE:
-      for (int ktime = 0; ktime < ntimes; ktime++){
-        maxAlt = kalmanStep(ktime);
-        int deltaLookUp;
-        //Deployment conditional (uses look up table, assume deploy for 3s, assumes we will only look at deployment past 7000 ft, no point in actuation otherwise)
-        (time > (383-3)) ? (deltaLookUp = (lookUpAB(time)-lookUpAB(383))) : (deltaLookUp = (lookUpAB(time)-lookUpAB(time+3)));
-        if((abs(maxAlt - 10000) >= deltaLookUp) && (RealAlt>=7000)){
-          //Print to console/write to memory "actuate"
-          next_state = RETRACT_BRAKES;
-          break;
-        }
+    //Below deprecated/not for use, only reference
+      // for (int ktime = 0; ktime < ntimes; ktime++){
+      //   maxAlt = kalmanStep(ktime);
+      //   int deltaLookUp;
+      //   //Deployment conditional (uses look up table, assume deploy for 3s, assumes we will only look at deployment past 7000 ft, no point in actuation otherwise)
+      //   (time > (383-3)) ? (deltaLookUp = (lookUpAB(time)-lookUpAB(383))) : (deltaLookUp = (lookUpAB(time)-lookUpAB(time+3)));
+      //   if((abs(maxAlt - 10000) >= deltaLookUp) && (RealAlt>=7000)){
+      //     //Print to console/write to memory "actuate"
+      //     next_state = RETRACT_BRAKES;
+      //     break;
+      //   }
+      // }
+      if(/*some post apgogee condition*/){
+        next_state = POST_APOGEE;
+      } else {
+        if((predict_apogee_now() - TARGET_APOGEE) >= acceptableMargin{
+          //Some logic to write to memory
+          next_state = DEPLOY_BRAKES;
+        }else{
+          //Some logic to write to memory
+          next_state = PREDICT_APOGEE;
       }
-
+      //"time steps" so that we aren't spamming the ouput
+      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    
     case DEPLOY_BRAKES:
       //Some logic to write to memory
       next_state = PREDICT_APOGEE;
@@ -291,4 +316,25 @@ void loop() {
       //Write to memory "terminate or smt like that"
   }
   curr_state = next_state;
+}
+
+//Reorganize predict apogee into seperate fn
+
+float predict_apogee_now(){
+  //Checking if kalman should be reset (when we actuated)
+  for(int ktime = 0; ktime < ntimes; ktime++){
+    //This logic allows us to continously call the apogee prediction
+    int i = 0;
+    float approxAlt = kalmanStep(ktime, reset_kalman());
+    return(approxAlt);
+  }
+}
+
+//This check occurs when kalmanStep() is called
+bool reset_kalman(){
+  if(/*some conditional/signal that acutation is occuring*/){{
+    return true;
+  } else{
+    return false;
+  }
 }
